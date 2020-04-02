@@ -56,7 +56,7 @@ contract KyberStorage is IKyberStorage {
         } else {
             matchingEngine.push(_matchingEngine);
         }
-        return true
+        return true;
     }
 
     function setDAOContract(IKyberDAO _kyberDAO)
@@ -96,6 +96,12 @@ contract KyberStorage is IKyberStorage {
         reserves.push(IKyberReserve(reserve));
         require(reserveAddressToId[reserve] == bytes32(0), "reserve has id");
         require(reserveId != 0, "reserveId = 0");
+        if (reserveIdToAddresses[reserveId].length == 0) {
+            reserveIdToAddresses[reserveId].push(reserve);
+        } else {
+            require(reserveIdToAddresses[reserveId][0] == address(0), "reserveId taken");
+            reserveIdToAddresses[reserveId][0] = reserve;
+        }
         reserveAddressToId[reserve] = reserveId;
         return true;
     }
@@ -146,7 +152,6 @@ contract KyberStorage is IKyberStorage {
         for (uint256 i = 0; i < reserveIds.length; i++) {
             reserveAddresses[i] = reserveIdToAddresses[reserveIds[i]][0];
         }
-        return true;
     }
 
     /// @dev no. of KyberNetworkProxies are capped
@@ -155,7 +160,7 @@ contract KyberStorage is IKyberStorage {
         onlyNetwork
         returns (bool)
     {
-        require(kyberProxyArray.length < max_approved_proxies, "Max 2 proxy");
+        require(kyberProxyArray.length < max_approved_proxies, "Max proxy");
 
         kyberProxyArray.push(IKyberNetworkProxy(networkProxy));
 

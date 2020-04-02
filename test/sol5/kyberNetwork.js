@@ -128,7 +128,7 @@ contract('KyberNetwork', function(accounts) {
         platformFeeBps = new BN(0);
     });
 
-    describe("should test adding contracts, and adding / removing proxy.", async() => {
+    describe.only("should test adding contracts, and adding / removing proxy.", async() => {
         let tempNetwork;
         let proxy1 = accounts[9];
         let proxy2 = accounts[8];
@@ -145,7 +145,7 @@ contract('KyberNetwork', function(accounts) {
 
         beforeEach("create new network", async() =>{
             tempNetwork = await KyberNetwork.new(admin);
-        })
+        });
 
         it("test can add max two proxies", async() => {
             await tempNetwork.addKyberProxy(proxy1, {from: admin});
