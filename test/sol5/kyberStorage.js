@@ -37,7 +37,7 @@ contract('KyberStorage', function(accounts) {
 
             await expectRevert(
                 tempStorage.addKyberProxy(proxy3, MAX_APPROVED_PROXIES, {from: network}),
-                "Max proxy"
+                "Max proxies"
             );
         });
 

@@ -160,7 +160,7 @@ contract KyberStorage is IKyberStorage {
         onlyNetwork
         returns (bool)
     {
-        require(kyberProxyArray.length < max_approved_proxies, "Max proxy");
+        require(kyberProxyArray.length < max_approved_proxies, "Max proxies");
 
         kyberProxyArray.push(IKyberNetworkProxy(networkProxy));
 
