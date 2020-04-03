@@ -112,7 +112,7 @@ contract KyberMatchingEngine is KyberHintHandler, IKyberMatchingEngine, Withdraw
                 } else {
                     //remove
                     reserveArr[i] = reserveArr[reserveArr.length - 1];
-                    reserveArr.length--;
+                    reserveArr.pop();
                     break;
                 }
             }
