@@ -215,8 +215,8 @@ contract KyberDAO is IKyberDAO, EpochUtils, ReentrancyGuard, CampPermissionGroup
     /**
     * @dev create new campaign, only called by admin
     * @param campType type of campaign (network fee, brr, general)
-    * @param startTimestamp block to start running the campaign
-    * @param endTimestamp block to end this campaign
+    * @param startTimestamp timestamp to start running the campaign
+    * @param endTimestamp timestamp to end this campaign
     * @param minPercentageInPrecision min percentage (in precision) for formula to conclude campaign
     * @param cInPrecision c value (in precision) for formula to conclude campaign
     * @param tInPrecision t value (in precision) for formula to conclude campaign
@@ -429,7 +429,7 @@ contract KyberDAO is IKyberDAO, EpochUtils, ReentrancyGuard, CampPermissionGroup
     }
 
     /**
-    * @dev return latest burn/reward/rebate data, also affecting epoch + expiry block number
+    * @dev return latest burn/reward/rebate data, also affecting epoch + expiry timestamp
     * @dev conclude brr campaign if needed and caching latest result in DAO
     */
     function getLatestBRRData()
@@ -563,7 +563,7 @@ contract KyberDAO is IKyberDAO, EpochUtils, ReentrancyGuard, CampPermissionGroup
     }
 
     /**
-    * @dev return latest network fee with expiry block number
+    * @dev return latest network fee with expiry timestamp
     */
     function getLatestNetworkFeeData() public view returns(uint feeInBps, uint expiryTimestamp) {
         uint curEpoch = getCurrentEpochNumber();
@@ -676,7 +676,7 @@ contract KyberDAO is IKyberDAO, EpochUtils, ReentrancyGuard, CampPermissionGroup
     )
         public view returns(bool)
     {
-        // block number <= start block < end block
+        // now <= start timestamp < end timestamp
         require(
             startTimestamp >= now,
             "validateParams: can't start in the past"

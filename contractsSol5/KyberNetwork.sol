@@ -40,7 +40,7 @@ contract KyberNetwork is Withdrawable2, Utils4, IKyberNetwork, ReentrancyGuard {
     IKyberMatchingEngine[]  internal matchingEngine;
     IGasHelper              internal gasHelper;
 
-    NetworkFeeData internal networkFeeData; // data is feeBps and expiry block
+    NetworkFeeData internal networkFeeData; // data is feeBps and expiry timestamp
     uint internal maxGasPriceValue = 50 * 1000 * 1000 * 1000; // 50 gwei
     bool internal isEnabled = false; // is network enabled
 
@@ -56,7 +56,7 @@ contract KyberNetwork is Withdrawable2, Utils4, IKyberNetwork, ReentrancyGuard {
     }
 
     constructor(address _admin) public Withdrawable2(_admin) {
-        updateNetworkFee(block.number, DEFAULT_NETWORK_FEE_BPS);
+        updateNetworkFee(now, DEFAULT_NETWORK_FEE_BPS);
     }
 
     event EtherReceival(address indexed sender, uint amount);

@@ -37,11 +37,12 @@ contract('KyberStaking', function(accounts) {
   beforeEach("running before each test", async() => {
     currentBlock = await Helper.getCurrentBlock();
     currentChainTime = await Helper.getCurrentBlockTime();
+    console.log(`chain start block: ${currentBlock}, start time: ${currentChainTime}`);
     blockTime = 16; // each block is mined after 16s
   });
 
   const blockToTimestamp = function(block) {
-    return currentChainTime + block * blockTime;
+    return currentChainTime + (block - currentBlock) * blockTime;
   };
 
   const blocksToSeconds = function(blocks) {
@@ -51,6 +52,7 @@ contract('KyberStaking', function(accounts) {
   const deployStakingContract = async(_epochPeriod, _startBlock) => {
     epochPeriod = _epochPeriod;
     startBlock = _startBlock;
+    console.log(`deploy staking contract: period: ${blocksToSeconds(epochPeriod)}, start: ${blockToTimestamp(startBlock)}`);
     stakingContract = await StakingContract.new(
       kncToken.address,
       blocksToSeconds(epochPeriod),
@@ -327,6 +329,7 @@ contract('KyberStaking', function(accounts) {
 
       for(let id = 0; id < 10; id++) {
         let tx = await stakingContract.deposit(mulPrecision(id * 2 + 1), {from: victor});
+        console.log("id: " + id);
         expectEvent(tx, "Deposited", {
           curEpoch: new BN(id),
           staker: victor,
@@ -337,10 +340,14 @@ contract('KyberStaking', function(accounts) {
         Helper.assertEqual(mulPrecision(totalDeposited), await stakingContract.getStakesValue(victor, currentEpoch + 1), "stake at next epoch is wrong, loop: " + id);
         Helper.assertEqual(mulPrecision(totalDeposited), await stakingContract.getLatestStakeBalance(victor), "latest stake balance is wrong, loop: " + id);
         currentEpoch++;
-        await Helper.increaseBlockNumber(epochPeriod - 1);
+        await Helper.increaseNextBlockTimestamp(
+          blocksToSeconds(epochPeriod)
+        );
       }
 
-      await Helper.increaseBlockNumber(4 * epochPeriod);
+      await Helper.mineNewBlockAfter(
+        blocksToSeconds(4 * epochPeriod)
+      );
       Helper.assertEqual(mulPrecision(totalDeposited), await stakingContract.getLatestStakeBalance(victor), "latest stake balance is wrong");
       Helper.assertEqual(mulPrecision(totalDeposited), await stakingContract.getStake(victor, currentEpoch + 3), "stake is wrong");
     });
@@ -365,7 +372,9 @@ contract('KyberStaking', function(accounts) {
       Helper.assertEqual(mulPrecision(120), await stakingContract.getLatestDelegatedStake(mike), "delegated stake is wrong");
 
       // delay to next epoch
-      await Helper.increaseBlockNumber(epochPeriod - 1);
+      await Helper.setNextBlockTimestamp(
+        blockToTimestamp(startBlock)
+      );
       await stakingContract.deposit(mulPrecision(30), {from: victor});
       Helper.assertEqual(mulPrecision(120), await stakingContract.getDelegatedStakesValue(mike, 1), "delegated stake is wrong");
       Helper.assertEqual(mulPrecision(150), await stakingContract.getDelegatedStakesValue(mike, 2), "delegated stake is wrong");
@@ -373,7 +382,9 @@ contract('KyberStaking', function(accounts) {
       Helper.assertEqual(mike, await stakingContract.getDelegatedAddressValue(victor, 2), "delegated addres is wrong");
 
       // delay few epochs
-      await Helper.increaseBlockNumber(4 * epochPeriod);
+      await Helper.increaseNextBlockTimestamp(
+        blocksToSeconds(4 * epochPeriod)
+      );
       await stakingContract.deposit(mulPrecision(50), {from: victor});
       Helper.assertEqual(mulPrecision(150), await stakingContract.getDelegatedStake(mike, 5), "delegated stake is wrong");
       Helper.assertEqual(mulPrecision(200), await stakingContract.getDelegatedStakesValue(mike, 6), "delegated stake is wrong");
@@ -404,7 +415,9 @@ contract('KyberStaking', function(accounts) {
       Helper.assertEqual(mulPrecision(100), await stakingContract.getDelegatedStakesValue(loi, 1), "delegated stake is wrong");
       Helper.assertEqual(mulPrecision(100), await stakingContract.getLatestDelegatedStake(loi), "delegated stake is wrong");
 
-      await Helper.increaseBlockNumber(epochPeriod - 1);
+      await Helper.setNextBlockTimestamp(
+        blockToTimestamp(startBlock)
+      );
       await stakingContract.delegate(mike, {from: victor});
 
       Helper.assertEqual(0, await stakingContract.getDelegatedStakesValue(mike, 1), "delegated stake is wrong");
@@ -416,7 +429,9 @@ contract('KyberStaking', function(accounts) {
       Helper.assertEqual(0, await stakingContract.getDelegatedStakesValue(loi, 2), "delegated stake is wrong");
       Helper.assertEqual(0, await stakingContract.getLatestDelegatedStake(loi), "delegated stake is wrong");
 
-      await Helper.increaseBlockNumber(4 * epochPeriod);
+      await Helper.increaseNextBlockTimestamp(
+        blocksToSeconds(4 * epochPeriod)
+      );
       await stakingContract.delegate(loi, {from: victor});
 
       Helper.assertEqual(mulPrecision(100), await stakingContract.getDelegatedStakesValue(mike, 5), "delegated stake is wrong");
@@ -448,7 +463,9 @@ contract('KyberStaking', function(accounts) {
       Helper.assertEqual(mulPrecision(200), await stakingContract.getStakesValue(victor, 1), "stake value is wrong");
       Helper.assertEqual(mulPrecision(300), await stakingContract.getStakesValue(loi, 1), "stake value is wrong");
 
-      await Helper.increaseBlockNumberTo(startBlock + epochPeriod);
+      await Helper.setNextBlockTimestamp(
+        blockToTimestamp(startBlock + epochPeriod)
+      );
 
       await stakingContract.deposit(mulPrecision(200), {from: mike});
       await stakingContract.deposit(mulPrecision(300), {from: victor});
@@ -462,7 +479,9 @@ contract('KyberStaking', function(accounts) {
       Helper.assertEqual(mulPrecision(500), await stakingContract.getStakesValue(victor, 3), "stake value is wrong");
       Helper.assertEqual(mulPrecision(700), await stakingContract.getStakesValue(loi, 3), "stake value is wrong");
 
-      await Helper.increaseBlockNumber(4 * epochPeriod);
+      await Helper.mineNewBlockAt(
+        blockToTimestamp(startBlock + 4 * epochPeriod)
+      );
       Helper.assertEqual(mulPrecision(300), await stakingContract.getStake(mike, 5), "stake value is wrong");
       Helper.assertEqual(mulPrecision(500), await stakingContract.getStake(victor, 5), "stake value is wrong");
       Helper.assertEqual(mulPrecision(700), await stakingContract.getStake(loi, 5), "stake value is wrong");
@@ -479,7 +498,9 @@ contract('KyberStaking', function(accounts) {
       await kncToken.transfer(victor, mulPrecision(100));
       await kncToken.approve(stakingContract.address, mulPrecision(100), {from: victor});
 
-      await Helper.increaseBlockNumberTo(3 * epochPeriod + startBlock);
+      await Helper.setNextBlockTimestamp(
+        blockToTimestamp(3 * epochPeriod + startBlock)
+      );
 
       await stakingContract.deposit(mulPrecision(10), {from: victor});
       Helper.assertEqual(false, await stakingContract.getHasInitedValue(victor, 1), "shouldn't be inited data");
@@ -490,7 +511,9 @@ contract('KyberStaking', function(accounts) {
 
       await stakingContract.delegate(loi, {from: victor});
 
-      await Helper.increaseBlockNumber(4 * epochPeriod);
+      await Helper.increaseNextBlockTimestamp(
+        blocksToSeconds(4 * epochPeriod)
+      );
       Helper.assertEqual(false, await stakingContract.getHasInitedValue(victor, 8), "shouldn't be inited data");
       Helper.assertEqual(false, await stakingContract.getHasInitedValue(victor, 9), "shouldn't be inited data");
       Helper.assertEqual(false, await stakingContract.getHasInitedValue(loi, 8), "shouldn't be inited data");
@@ -503,7 +526,9 @@ contract('KyberStaking', function(accounts) {
       Helper.assertEqual(true, await stakingContract.getHasInitedValue(loi, 9), "should be inited data");
 
       await stakingContract.delegate(mike, {from: victor});
-      await Helper.increaseBlockNumber(4 * epochPeriod);
+      await Helper.increaseNextBlockTimestamp(
+        blocksToSeconds(4 * epochPeriod)
+      );
       Helper.assertEqual(false, await stakingContract.getHasInitedValue(mike, 12), "shouldn't be inited data");
       Helper.assertEqual(false, await stakingContract.getHasInitedValue(mike, 13), "shouldn't be inited data");
       Helper.assertEqual(false, await stakingContract.getHasInitedValue(loi, 12), "shouldn't be inited data");
@@ -544,7 +569,9 @@ contract('KyberStaking', function(accounts) {
       Helper.assertEqual(expectedUserBal, await kncToken.balanceOf(victor), "user balance is not changed as expected");
       Helper.assertEqual(expectedStakingBal, await kncToken.balanceOf(stakingContract.address), "staking balance is not changed as expected");
 
-      await Helper.increaseBlockNumber(30);
+      await Helper.increaseNextBlockTimestamp(
+        blocksToSeconds(30)
+      );
 
       await stakingContract.deposit(mulPrecision(100), {from: victor});
 
@@ -566,7 +593,9 @@ contract('KyberStaking', function(accounts) {
       Helper.assertEqual(totalAmount, await stakingContract.getLatestStakeBalance(victor), "latest stake balance is wrong");
       Helper.assertEqual(totalAmount, await stakingContract.getStake(victor, 1), "stake is wrong");
 
-      await Helper.increaseBlockNumber(17);
+      await Helper.setNextBlockTimestamp(
+        blockToTimestamp(startBlock)
+      );
 
       let withdrawAmount = precisionUnits.mul(new BN(10).pow(new BN(8))); // 100M tokens
       await stakingContract.withdraw(withdrawAmount, {from: victor});
@@ -590,17 +619,23 @@ contract('KyberStaking', function(accounts) {
       let tx = await stakingContract.deposit(mulPrecision(100), {from: victor});
       logInfo("Deposit no delegation: init 2 epochs data, gas used: " + tx.receipt.cumulativeGasUsed);
 
-      await Helper.increaseBlockNumberTo(startBlock);
+      await Helper.setNextBlockTimestamp(
+        blockToTimestamp(startBlock)
+      );
       tx = await stakingContract.deposit(mulPrecision(50), {from: victor});
       logInfo("Deposit no delegation: init 1 epoch data, gas used: " + tx.receipt.cumulativeGasUsed);
       tx = await stakingContract.deposit(mulPrecision(50), {from: victor});
       logInfo("Deposit no delegation: no init epoch data, gas used: " + tx.receipt.cumulativeGasUsed);
 
       await stakingContract.delegate(mike, {from: victor});
-      await Helper.increaseBlockNumberTo(4 * epochPeriod + startBlock);
+      await Helper.setNextBlockTimestamp(
+        blockToTimestamp(4 * epochPeriod + startBlock)
+      );
       tx = await stakingContract.deposit(mulPrecision(100), {from: victor});
       logInfo("Deposit has delegation: init 2 epochs data, gas used: " + tx.receipt.cumulativeGasUsed);
-      await Helper.increaseBlockNumber(epochPeriod - 1);
+      await Helper.increaseNextBlockTimestamp(
+        blocksToSeconds(epochPeriod)
+      );
       tx = await stakingContract.deposit(mulPrecision(50), {from: victor});
       logInfo("Deposit has delegation: init 1 epoch data, gas used: " + tx.receipt.cumulativeGasUsed);
       tx = await stakingContract.deposit(mulPrecision(50), {from: victor});
@@ -627,7 +662,9 @@ contract('KyberStaking', function(accounts) {
       Helper.assertEqual(mulPrecision(450), await stakingContract.getLatestStakeBalance(victor), "latest stake balance should be correct");
 
       // delay to epoch 1
-      await Helper.increaseBlockNumberTo(startBlock + 1);
+      await Helper.setNextBlockTimestamp(
+        blockToTimestamp(startBlock + 1)
+      );
 
       tx = await stakingContract.withdraw(mulPrecision(100), {from: victor});
       expectEvent(tx, "Withdraw", {
@@ -640,7 +677,9 @@ contract('KyberStaking', function(accounts) {
       Helper.assertEqual(mulPrecision(350), await stakingContract.getLatestStakeBalance(victor), "latest stake balance should be correct");
 
       // delay to epoch 5
-      await Helper.increaseBlockNumber(4 * epochPeriod);
+      await Helper.increaseNextBlockTimestamp(
+        blocksToSeconds(4 * epochPeriod)
+      );
 
       tx = await stakingContract.withdraw(mulPrecision(40), {from: victor});
       expectEvent(tx, "Withdraw", {
@@ -652,7 +691,9 @@ contract('KyberStaking', function(accounts) {
       Helper.assertEqual(mulPrecision(310), await stakingContract.getStakesValue(victor, 5), "stake at epoch 5 should be correct");
       Helper.assertEqual(mulPrecision(310), await stakingContract.getLatestStakeBalance(victor), "latest stake balance should be correct");
 
-      await Helper.increaseBlockNumber(5 * epochPeriod);
+      await Helper.increaseNextBlockTimestamp(
+        blocksToSeconds(5 * epochPeriod)
+      );
 
       // withdraw full
       await stakingContract.withdraw(mulPrecision(310), {from: victor});
@@ -681,7 +722,9 @@ contract('KyberStaking', function(accounts) {
 
       currentBlock = await Helper.getCurrentBlock();
       // delay to epoch 1
-      await Helper.increaseBlockNumberTo(startBlock + 1);
+      await Helper.setNextBlockTimestamp(
+        blockToTimestamp(startBlock + 1)
+      );
 
       await stakingContract.withdraw(mulPrecision(100), {from: victor});
 
@@ -689,14 +732,18 @@ contract('KyberStaking', function(accounts) {
       Helper.assertEqual(mulPrecision(350), await stakingContract.getLatestDelegatedStake(mike), "latest delegated stake balance should be correct");
 
       // delay to epoch 1
-      await Helper.increaseBlockNumber(4 * epochPeriod);
+      await Helper.increaseNextBlockTimestamp(
+        blocksToSeconds(4 * epochPeriod)
+      );
 
       await stakingContract.withdraw(mulPrecision(40), {from: victor});
 
       Helper.assertEqual(mulPrecision(310), await stakingContract.getDelegatedStakesValue(mike, 5), "delegated stake should be correct");
       Helper.assertEqual(mulPrecision(310), await stakingContract.getLatestDelegatedStake(mike), "latest delegated stake balance should be correct");
 
-      await Helper.increaseBlockNumber(5 * epochPeriod);
+      await Helper.increaseNextBlockTimestamp(
+        blocksToSeconds(5 * epochPeriod)
+      );
 
       // withdraw full
       await stakingContract.withdraw(mulPrecision(310), {from: victor});
@@ -719,7 +766,9 @@ contract('KyberStaking', function(accounts) {
       await stakingContract.deposit(mulPrecision(300), {from: victor});
 
       // delay to epoch 1
-      await Helper.increaseBlockNumberTo(startBlock + 1);
+      await Helper.setNextBlockTimestamp(
+        blockToTimestamp(startBlock + 1)
+      );
 
       await stakingContract.deposit(mulPrecision(100), {from: victor});
 
@@ -740,7 +789,9 @@ contract('KyberStaking', function(accounts) {
       await stakingContract.delegate(mike, {from: victor});
 
       // delay to epoch 1
-      await Helper.increaseBlockNumberTo(startBlock + 1);
+      await Helper.setNextBlockTimestamp(
+        blockToTimestamp(startBlock + 1)
+      );
 
       await stakingContract.withdraw(mulPrecision(200), {from: victor});
 
@@ -774,7 +825,9 @@ contract('KyberStaking', function(accounts) {
       await stakingContract.delegate(mike, {from: victor});
 
       // delay to epoch 1
-      await Helper.increaseBlockNumberTo(startBlock + 1);
+      await Helper.setNextBlockTimestamp(
+        blockToTimestamp(startBlock + 1)
+      );
 
       await stakingContract.deposit(mulPrecision(100), {from: victor});
       await stakingContract.withdraw(mulPrecision(50), {from: victor});
@@ -798,7 +851,9 @@ contract('KyberStaking', function(accounts) {
       await stakingContract.delegate(mike, {from: victor});
 
       // delay to epoch 1
-      await Helper.increaseBlockNumberTo(startBlock + 1);
+      await Helper.setNextBlockTimestamp(
+        blockToTimestamp(startBlock + 1)
+      );
 
       await stakingContract.deposit(mulPrecision(100), {from: victor});
       await stakingContract.withdraw(mulPrecision(50), {from: victor});
@@ -823,7 +878,9 @@ contract('KyberStaking', function(accounts) {
       await stakingContract.delegate(mike, {from: victor});
 
       // delay to epoch 1
-      await Helper.increaseBlockNumberTo(startBlock + 1);
+      await Helper.setNextBlockTimestamp(
+        blockToTimestamp(startBlock + 1)
+      );
 
       await stakingContract.deposit(mulPrecision(100), {from: victor});
       await stakingContract.withdraw(mulPrecision(150), {from: victor});
@@ -858,7 +915,9 @@ contract('KyberStaking', function(accounts) {
       Helper.assertEqual(mulPrecision(100), await stakingContract.getStake(victor, 1), "stake at epoch 1 is wrong");
       Helper.assertEqual(mulPrecision(800), await stakingContract.getStake(loi, 1), "stake at epoch 1 is wrong");
 
-      await Helper.increaseBlockNumberTo(startBlock + epochPeriod - 2);
+      await Helper.setNextBlockTimestamp(
+        blockToTimestamp(startBlock + epochPeriod) - 1
+      );
       // withdraw at end of epoch 1
       await stakingContract.withdraw(mulPrecision(600), {from: loi});
 
@@ -891,7 +950,9 @@ contract('KyberStaking', function(accounts) {
       await kncToken.approve(stakingContract.address, mulPrecision(100), {from: victor});
       await stakingContract.deposit(mulPrecision(100), {from: victor});
 
-      await Helper.increaseBlockNumberTo(3 * epochPeriod + startBlock);
+      await Helper.setNextBlockTimestamp(
+        blockToTimestamp(3 * epochPeriod + startBlock)
+      );
 
       await stakingContract.withdraw(mulPrecision(10), {from: victor});
       Helper.assertEqual(false, await stakingContract.getHasInitedValue(victor, 3), "shouldn't be inited data");
@@ -900,7 +961,9 @@ contract('KyberStaking', function(accounts) {
 
       await stakingContract.delegate(mike, {from: victor});
 
-      await Helper.increaseBlockNumber(4 * epochPeriod);
+      await Helper.increaseNextBlockTimestamp(
+        blocksToSeconds(4 * epochPeriod)
+      );
       Helper.assertEqual(false, await stakingContract.getHasInitedValue(victor, 8), "shouldn't be inited data");
       Helper.assertEqual(false, await stakingContract.getHasInitedValue(victor, 9), "shouldn't be inited data");
       Helper.assertEqual(false, await stakingContract.getHasInitedValue(mike, 8), "shouldn't be inited data");
@@ -913,7 +976,9 @@ contract('KyberStaking', function(accounts) {
       Helper.assertEqual(true, await stakingContract.getHasInitedValue(mike, 9), "should be inited data");
 
       await stakingContract.delegate(loi, {from: victor});
-      await Helper.increaseBlockNumber(4 * epochPeriod);
+      await Helper.increaseNextBlockTimestamp(
+        blocksToSeconds(4 * epochPeriod)
+      );
       Helper.assertEqual(false, await stakingContract.getHasInitedValue(victor, 12), "shouldn't be inited data");
       Helper.assertEqual(false, await stakingContract.getHasInitedValue(victor, 13), "shouldn't be inited data");
       Helper.assertEqual(false, await stakingContract.getHasInitedValue(mike, 12), "shouldn't be inited data");
@@ -955,7 +1020,9 @@ contract('KyberStaking', function(accounts) {
       Helper.assertEqual(expectedUserBal, await kncToken.balanceOf(victor), "user balance is not changed as expected");
       Helper.assertEqual(expectedStakingBal, await kncToken.balanceOf(stakingContract.address), "staking balance is not changed as expected");
 
-      await Helper.increaseBlockNumber(20);
+      await Helper.increaseNextBlockTimestamp(
+        blocksToSeconds(20)
+      );
       await stakingContract.withdraw(mulPrecision(100), {from: victor});
       expectedUserBal.iadd(mulPrecision(100));
       expectedStakingBal.isub(mulPrecision(100));
@@ -973,7 +1040,10 @@ contract('KyberStaking', function(accounts) {
 
     it("Test withdraw should call DAO handleWithdrawal as expected", async function() {
       await deployStakingContract(10, currentBlock + 10);
-      let dao = await MockKyberDAO.new(10, currentBlock + 10);
+      let dao = await MockKyberDAO.new(
+        blocksToSeconds(10),
+        blockToTimestamp(currentBlock + 10),
+      );
       await stakingContract.updateDAOAddressAndRemoveSetter(dao.address, {from: daoSetter});
 
       await kncToken.transfer(victor, mulPrecision(500));
@@ -983,11 +1053,15 @@ contract('KyberStaking', function(accounts) {
       await stakingContract.withdraw(mulPrecision(10), {from: victor});
       Helper.assertEqual(0, await dao.values(victor), "shouldn't call dao withdrawal func");
 
-      await Helper.increaseBlockNumber(epochPeriod);
+      await Helper.increaseNextBlockTimestamp(
+        blocksToSeconds(epochPeriod)
+      );
       await stakingContract.withdraw(mulPrecision(10), {from: victor});
       Helper.assertEqual(mulPrecision(10), await dao.values(victor), "should call dao withdrawal func");
 
-      await Helper.increaseBlockNumberTo(epochPeriod * 2 + startBlock);
+      await Helper.setNextBlockTimestamp(
+        blockToTimestamp(epochPeriod * 2 + startBlock)
+      );
 
       await stakingContract.deposit(mulPrecision(20), {from: victor});
       await stakingContract.withdraw(mulPrecision(10), {from: victor});
@@ -998,7 +1072,9 @@ contract('KyberStaking', function(accounts) {
       Helper.assertEqual(mulPrecision(30), await dao.values(victor), "should call dao withdrawal func");
 
       await stakingContract.delegate(mike, {from: victor});
-      await Helper.increaseBlockNumberTo(3 * epochPeriod + startBlock);
+      await Helper.setNextBlockTimestamp(
+        blockToTimestamp(3 * epochPeriod + startBlock)
+      );
 
       Helper.assertEqual(mulPrecision(30), await dao.values(victor), "dao values should be correct");
       Helper.assertEqual(0, await dao.values(mike), "dao values should be correct");
@@ -1020,7 +1096,9 @@ contract('KyberStaking', function(accounts) {
       Helper.assertEqual(0, await dao.values(loi), "dao values should be correct");
 
       // move to next epoch
-      await Helper.increaseBlockNumber(epochPeriod - 4);
+      await Helper.increaseNextBlockTimestamp(
+        blocksToSeconds(epochPeriod)
+      );
 
       await stakingContract.withdraw(mulPrecision(10), {from: victor});
       Helper.assertEqual(mulPrecision(30), await dao.values(victor), "dao values should be correct");
@@ -1029,7 +1107,9 @@ contract('KyberStaking', function(accounts) {
 
       await stakingContract.delegate(victor, {from: victor});
       // move to next epoch
-      await Helper.increaseBlockNumber(epochPeriod - 4);
+      await Helper.increaseNextBlockTimestamp(
+        blocksToSeconds(epochPeriod)
+      );
       await stakingContract.withdraw(mulPrecision(10), {from: victor});
       Helper.assertEqual(mulPrecision(40), await dao.values(victor), "dao values should be correct");
       Helper.assertEqual(mulPrecision(25), await dao.values(mike), "dao values should be correct");
@@ -1038,7 +1118,10 @@ contract('KyberStaking', function(accounts) {
 
     it("Test withdraw gas usages", async function() {
       await deployStakingContract(10, currentBlock + 10);
-      let dao = await MockKyberDAO.new(10, currentBlock + 10);
+      let dao = await MockKyberDAO.new(
+        blocksToSeconds(10),
+        blockToTimestamp(currentBlock + 10),
+      );
 
       await kncToken.transfer(victor, mulPrecision(500));
       await kncToken.approve(stakingContract.address, mulPrecision(500), {from: victor});
@@ -1047,11 +1130,15 @@ contract('KyberStaking', function(accounts) {
       let tx = await stakingContract.withdraw(mulPrecision(10), {from: victor});
       logInfo("Withdraw no delegation, no DAO : no init epoch data + no penalty amount, gas used: " + tx.receipt.cumulativeGasUsed);
 
-      await Helper.increaseBlockNumberTo(startBlock);
+      await Helper.setNextBlockTimestamp(
+        blockToTimestamp(startBlock)
+      );
       tx = await stakingContract.withdraw(mulPrecision(10), {from: victor});
       logInfo("Withdraw no delegation, no DAO : init 1 epoch data + has penalty amount, gas used: " + tx.receipt.cumulativeGasUsed);
 
-      await Helper.increaseBlockNumberTo(4 * epochPeriod + startBlock);
+      await Helper.setNextBlockTimestamp(
+        blockToTimestamp(4 * epochPeriod + startBlock)
+      );
       tx = await stakingContract.withdraw(mulPrecision(10), {from: victor});
       logInfo("Withdraw no delegation, no DAO : init 2 epoch data + has penalty amount, gas used: " + tx.receipt.cumulativeGasUsed);
 
@@ -1060,11 +1147,15 @@ contract('KyberStaking', function(accounts) {
       logInfo("Withdraw no delegation, no DAO : without init epoch data + has penalty amount, gas used: " + tx.receipt.cumulativeGasUsed);
 
       await stakingContract.delegate(mike, {from: victor});
-      await Helper.increaseBlockNumberTo(6 * epochPeriod + startBlock);
+      await Helper.setNextBlockTimestamp(
+        blockToTimestamp(6 * epochPeriod + startBlock)
+      );
       tx = await stakingContract.withdraw(mulPrecision(10), {from: victor});
       logInfo("Withdraw has delegation, no DAO: init 2 epoch data + has penalty amount, gas used: " + tx.receipt.cumulativeGasUsed);
 
-      await Helper.increaseBlockNumberTo(7 * epochPeriod + startBlock);
+      await Helper.setNextBlockTimestamp(
+        blockToTimestamp(7 * epochPeriod + startBlock)
+      );
       tx = await stakingContract.withdraw(mulPrecision(10), {from: victor});
       logInfo("Withdraw has delegation, no DAO: init 1 epoch data+ has penalty amount, gas used: " + tx.receipt.cumulativeGasUsed);
       tx = await stakingContract.withdraw(mulPrecision(10), {from: victor});
@@ -1080,18 +1171,26 @@ contract('KyberStaking', function(accounts) {
       tx = await stakingContract.withdraw(mulPrecision(20), {from: victor});
       logInfo("Withdraw has delegation, has DAO: without init epoch data + has penalty amount, gas used: " + tx.receipt.cumulativeGasUsed);
 
-      await Helper.increaseBlockNumberTo(9 * epochPeriod + startBlock);
+      await Helper.setNextBlockTimestamp(
+        blockToTimestamp(9 * epochPeriod + startBlock)
+      );
       tx = await stakingContract.withdraw(mulPrecision(20), {from: victor});
       logInfo("Withdraw has delegation, has DAO: init 2 epoch data + has penalty amount, gas used: " + tx.receipt.cumulativeGasUsed);
-      await Helper.increaseBlockNumberTo(10 * epochPeriod + startBlock);
+      await Helper.setNextBlockTimestamp(
+        blockToTimestamp(10 * epochPeriod + startBlock)
+      );
       tx = await stakingContract.withdraw(mulPrecision(20), {from: victor});
       logInfo("Withdraw has delegation, has DAO: init 1 epoch data + has penalty amount, gas used: " + tx.receipt.cumulativeGasUsed);
 
       await stakingContract.delegate(victor, {from: victor});
-      await Helper.increaseBlockNumberTo(12 * epochPeriod + startBlock);
+      await Helper.setNextBlockTimestamp(
+        blockToTimestamp(12 * epochPeriod + startBlock)
+      );
       tx = await stakingContract.withdraw(mulPrecision(20), {from: victor});
       logInfo("Withdraw no delegation, has DAO: init 2 epoch data + has penalty amount, gas used: " + tx.receipt.cumulativeGasUsed);
-      await Helper.increaseBlockNumberTo(13 * epochPeriod + startBlock);
+      await Helper.setNextBlockTimestamp(
+        blockToTimestamp(13 * epochPeriod + startBlock)
+      );
       tx = await stakingContract.withdraw(mulPrecision(20), {from: victor});
       logInfo("Withdraw no delegation, has DAO: init 1 epoch data + has penalty amount, gas used: " + tx.receipt.cumulativeGasUsed);
       tx = await stakingContract.withdraw(mulPrecision(20), {from: victor});
@@ -1114,7 +1213,9 @@ contract('KyberStaking', function(accounts) {
         isDelegated: true
       });
 
-      await Helper.increaseBlockNumberTo(4 * epochPeriod + startBlock);
+      await Helper.setNextBlockTimestamp(
+        blockToTimestamp(4 * epochPeriod + startBlock)
+      );
 
       await stakingContract.deposit(mulPrecision(50), {from: victor});
 
@@ -1153,7 +1254,9 @@ contract('KyberStaking', function(accounts) {
       Helper.assertEqual(mulPrecision(100), await stakingContract.getDelegatedStakesValue(loi, 6), "delegated stake is incorrect");
       Helper.assertEqual(mulPrecision(100), await stakingContract.getLatestDelegatedStake(loi), "latest delegated stake is incorrect");
 
-      await Helper.increaseBlockNumber(4 * epochPeriod - 5);
+      await Helper.setNextBlockTimestamp(
+        blockToTimestamp(startBlock + 8 * epochPeriod) - 1
+      );
 
       await stakingContract.delegate(mike, {from: victor});
 
@@ -1171,7 +1274,9 @@ contract('KyberStaking', function(accounts) {
 
       await stakingContract.delegate(mike, {from: victor});
 
-      await Helper.increaseBlockNumberTo(4 * epochPeriod + startBlock);
+      await Helper.setNextBlockTimestamp(
+        blockToTimestamp(4 * epochPeriod + startBlock)
+      );
 
       await stakingContract.deposit(mulPrecision(50), {from: victor});
 
@@ -1187,7 +1292,9 @@ contract('KyberStaking', function(accounts) {
       Helper.assertEqual(mulPrecision(50), await stakingContract.getDelegatedStakesValue(mike, 6), "delegated stake is incorrect");
       Helper.assertEqual(mulPrecision(50), await stakingContract.getLatestDelegatedStake(mike), "latest delegated stake is incorrect");
 
-      await Helper.increaseBlockNumber(4 * epochPeriod - 3);
+      await Helper.increaseNextBlockTimestamp(
+        blocksToSeconds(4 * epochPeriod)
+      );
 
       await stakingContract.delegate(mike, {from: victor});
 
@@ -1205,7 +1312,9 @@ contract('KyberStaking', function(accounts) {
       await stakingContract.delegate(mike, {from: victor});
       await stakingContract.deposit(mulPrecision(50), {from: victor});
 
-      await Helper.increaseBlockNumberTo(4 * epochPeriod + startBlock);
+      await Helper.mineNewBlockAt(
+        blockToTimestamp(4 * epochPeriod + startBlock)
+      );
 
       Helper.assertEqual(mike, await stakingContract.getLatestDelegatedAddress(victor), "latest delegated address is incorrect");
       Helper.assertEqual(mulPrecision(50), await stakingContract.getDelegatedStake(mike, 4), "delegated stake is incorrect");
@@ -1229,7 +1338,9 @@ contract('KyberStaking', function(accounts) {
       await kncToken.approve(stakingContract.address, mulPrecision(100), {from: victor});
       await stakingContract.deposit(mulPrecision(100), {from: victor});
 
-      await Helper.increaseBlockNumberTo(4 * epochPeriod + startBlock);
+      await Helper.setNextBlockTimestamp(
+        blockToTimestamp(4 * epochPeriod + startBlock)
+      );
 
       await stakingContract.delegate(mike, {from: victor});
 
@@ -1246,7 +1357,9 @@ contract('KyberStaking', function(accounts) {
       await kncToken.approve(stakingContract.address, mulPrecision(400), {from: victor});
       await stakingContract.deposit(mulPrecision(100), {from: victor});
 
-      await Helper.increaseBlockNumberTo(4 * epochPeriod + startBlock);
+      await Helper.setNextBlockTimestamp(
+        blockToTimestamp(4 * epochPeriod + startBlock)
+      );
 
       await stakingContract.delegate(mike, {from: victor});
       await stakingContract.deposit(mulPrecision(40), {from: victor});
@@ -1254,13 +1367,17 @@ contract('KyberStaking', function(accounts) {
       Helper.assertEqual(0, await stakingContract.getDelegatedStakesValue(mike, 5), "delegated stake is incorrect");
       Helper.assertEqual(mulPrecision(140), await stakingContract.getDelegatedStakesValue(mike, 6), "delegated stake is incorrect");
 
-      await Helper.increaseBlockNumber(epochPeriod - 1);
+      await Helper.increaseNextBlockTimestamp(
+        blocksToSeconds(epochPeriod)
+      );
       await stakingContract.deposit(mulPrecision(60), {from: victor});
 
       Helper.assertEqual(mulPrecision(140), await stakingContract.getDelegatedStakesValue(mike, 6), "delegated stake is incorrect");
       Helper.assertEqual(mulPrecision(200), await stakingContract.getDelegatedStakesValue(mike, 7), "delegated stake is incorrect");
 
-      await Helper.increaseBlockNumber(epochPeriod * 4);
+      await Helper.increaseNextBlockTimestamp(
+        blocksToSeconds(epochPeriod * 4)
+      );
       await stakingContract.deposit(mulPrecision(200), {from: victor});
 
       Helper.assertEqual(mulPrecision(200), await stakingContract.getDelegatedStakesValue(mike, 10), "delegated stake is incorrect");
@@ -1286,7 +1403,9 @@ contract('KyberStaking', function(accounts) {
       Helper.assertEqual(loi, await stakingContract.getLatestDelegatedAddress(mike), "delegated address is wrong");
       Helper.assertEqual(loi, await stakingContract.getLatestDelegatedAddress(victor), "delegated address is wrong");
 
-      await Helper.increaseBlockNumber(4 * epochPeriod - 4);
+      await Helper.increaseNextBlockTimestamp(
+        blocksToSeconds(4 * epochPeriod)
+      );
       await stakingContract.withdraw(mulPrecision(10), {from: victor});
 
       Helper.assertEqual(mulPrecision(190), await stakingContract.getDelegatedStakesValue(loi, 4), "delegated stake is wrong");
@@ -1315,18 +1434,23 @@ contract('KyberStaking', function(accounts) {
       Helper.assertEqual(mulPrecision(300), await stakingContract.getDelegatedStakesValue(loi, 1), "delegated stake is not correct");
       Helper.assertEqual(mulPrecision(300), await stakingContract.getLatestDelegatedStake(loi), "delegated stake is not correct");
 
-      await Helper.increaseBlockNumberTo(startBlock);
+      await Helper.setNextBlockTimestamp(
+        blockToTimestamp(startBlock)
+      );
       await stakingContract.withdraw(mulPrecision(100), {from: victor});
 
       Helper.assertEqual(mulPrecision(200), await stakingContract.getDelegatedStakesValue(loi, 1), "delegated stake is not correct");
       Helper.assertEqual(mulPrecision(200), await stakingContract.getDelegatedStakesValue(loi, 2), "delegated stake is not correct");
       Helper.assertEqual(mulPrecision(200), await stakingContract.getLatestDelegatedStake(loi), "delegated stake is not correct");
 
-      await Helper.increaseBlockNumber(4 * epochPeriod - 4);
+      await Helper.mineNewBlockAfter(
+        blocksToSeconds(4 * epochPeriod) - 2
+      );
 
       Helper.assertEqual(mulPrecision(200), await stakingContract.getDelegatedStake(loi, 4), "delegated stake is not correct");
       Helper.assertEqual(mulPrecision(200), await stakingContract.getDelegatedStake(loi, 5), "delegated stake is not correct");
 
+      await Helper.increaseNextBlockTimestamp(1);
       await stakingContract.withdraw(mulPrecision(10), {from: victor});
 
       Helper.assertEqual(mulPrecision(190), await stakingContract.getDelegatedStakesValue(loi, 4), "delegated stake is not correct");
@@ -1347,18 +1471,24 @@ contract('KyberStaking', function(accounts) {
       Helper.assertEqual(mulPrecision(200), await stakingContract.getDelegatedStakesValue(loi, 1), "delegated stake is not correct");
       Helper.assertEqual(mulPrecision(200), await stakingContract.getLatestDelegatedStake(loi), "delegated stake is not correct");
 
-      await Helper.increaseBlockNumberTo(startBlock);
+      await Helper.setNextBlockTimestamp(
+        blockToTimestamp(startBlock)
+      );
       await stakingContract.withdraw(mulPrecision(100), {from: victor});
 
       Helper.assertEqual(mulPrecision(100), await stakingContract.getDelegatedStakesValue(loi, 1), "delegated stake is not correct");
       Helper.assertEqual(mulPrecision(100), await stakingContract.getDelegatedStakesValue(loi, 2), "delegated stake is not correct");
       Helper.assertEqual(mulPrecision(100), await stakingContract.getLatestDelegatedStake(loi), "delegated stake is not correct");
 
-      await Helper.increaseBlockNumber(4 * epochPeriod - 4);
+      await Helper.mineNewBlockAfter(
+        blocksToSeconds(4 * epochPeriod) - 2
+      );
 
       Helper.assertEqual(mulPrecision(100), await stakingContract.getDelegatedStake(loi, 4), "delegated stake is not correct");
       Helper.assertEqual(mulPrecision(100), await stakingContract.getDelegatedStake(loi, 5), "delegated stake is not correct");
 
+      // deposit at the end of the epoch
+      await Helper.increaseNextBlockTimestamp(1);
       await stakingContract.deposit(mulPrecision(50), {from: victor});
       Helper.assertEqual(mulPrecision(100), await stakingContract.getDelegatedStakesValue(loi, 4), "delegated stake is not correct");
       Helper.assertEqual(mulPrecision(150), await stakingContract.getDelegatedStakesValue(loi, 5), "delegated stake is not correct");
@@ -1377,7 +1507,9 @@ contract('KyberStaking', function(accounts) {
       await kncToken.approve(stakingContract.address, mulPrecision(400), {from: victor});
       await stakingContract.deposit(mulPrecision(300), {from: victor});
 
-      await Helper.increaseBlockNumberTo(startBlock - 2);
+      await Helper.setNextBlockTimestamp(
+        blockToTimestamp(startBlock) - 1
+      );
       // delegate at end of epoch
       await stakingContract.delegate(mike, {from: victor});
 
@@ -1387,7 +1519,9 @@ contract('KyberStaking', function(accounts) {
       Helper.assertEqual(mike, await stakingContract.getDelegatedAddressValue(victor, 1), "delegated address is wrong");
       Helper.assertEqual(victor, await stakingContract.getDelegatedAddressValue(victor, 0), "delegated address is wrong");
 
-      await Helper.increaseBlockNumberTo(epochPeriod + startBlock);
+      await Helper.setNextBlockTimestamp(
+        blockToTimestamp(epochPeriod + startBlock)
+      );
       // delegate at begin of epoch 2
       await stakingContract.delegate(loi, {from: victor});
 
@@ -1437,7 +1571,9 @@ contract('KyberStaking', function(accounts) {
       Helper.assertEqual(mike, await stakingContract.getDelegatedAddressValue(victor, 1), "delegated address is wrong");
       Helper.assertEqual(mike, await stakingContract.getLatestDelegatedAddress(victor), "latest delegated address is wrong");
 
-      await Helper.increaseBlockNumberTo(startBlock + 1);
+      await Helper.setNextBlockTimestamp(
+        blockToTimestamp(startBlock + 1)
+      );
 
       await stakingContract.deposit(mulPrecision(50), {from: mike});
       Helper.assertEqual(mulPrecision(250), await stakingContract.getLatestDelegatedStake(loi), "latest delegated stake is wrong");
@@ -1453,7 +1589,9 @@ contract('KyberStaking', function(accounts) {
       Helper.assertEqual(mulPrecision(100), await stakingContract.getLatestDelegatedStake(mike), "latest delegated stake is wrong");
       Helper.assertEqual(mulPrecision(250), await stakingContract.getLatestDelegatedStake(loi), "latest delegated stake is wrong");
 
-      await Helper.increaseBlockNumber(epochPeriod * 4);
+      await Helper.mineNewBlockAfter(
+        blocksToSeconds(epochPeriod * 4)
+      );
       Helper.assertEqual(mulPrecision(250), await stakingContract.getDelegatedStake(victor, 4), "delegated stake is wrong");
       Helper.assertEqual(mulPrecision(100), await stakingContract.getDelegatedStake(mike, 4), "delegated stake is wrong");
       Helper.assertEqual(mulPrecision(250), await stakingContract.getDelegatedStake(loi, 4), "delegated stake is wrong");
@@ -1477,7 +1615,9 @@ contract('KyberStaking', function(accounts) {
 
       await stakingContract.delegate(mike, {from: victor});
 
-      await Helper.increaseBlockNumberTo(startBlock);
+      await Helper.setNextBlockTimestamp(
+        blockToTimestamp(startBlock)
+      );
 
       await stakingContract.delegate(loi, {from: victor});
       Helper.assertEqual(mulPrecision(100), await stakingContract.getDelegatedStakesValue(mike, 1), "delegated stake is wrong");
@@ -1513,14 +1653,18 @@ contract('KyberStaking', function(accounts) {
       await kncToken.transfer(victor, mulPrecision(100));
       await kncToken.approve(stakingContract.address, mulPrecision(100), {from: victor});
 
-      await Helper.increaseBlockNumberTo(3 * epochPeriod + startBlock);
+      await Helper.setNextBlockTimestamp(
+        blockToTimestamp(3 * epochPeriod + startBlock)
+      );
 
       await stakingContract.delegate(mike, {from: victor});
       Helper.assertEqual(false, await stakingContract.getHasInitedValue(victor, 3), "shouldn't be inited data");
       Helper.assertEqual(true, await stakingContract.getHasInitedValue(victor, 4), "should be inited data");
       Helper.assertEqual(true, await stakingContract.getHasInitedValue(victor, 5), "should be inited data");
 
-      await Helper.increaseBlockNumber(4 * epochPeriod);
+      await Helper.increaseNextBlockTimestamp(
+        blocksToSeconds(4 * epochPeriod)
+      );
       Helper.assertEqual(false, await stakingContract.getHasInitedValue(victor, 8), "should be inited data");
       Helper.assertEqual(false, await stakingContract.getHasInitedValue(victor, 9), "should be inited data");
       Helper.assertEqual(false, await stakingContract.getHasInitedValue(mike, 8), "should be inited data");
@@ -1532,7 +1676,9 @@ contract('KyberStaking', function(accounts) {
       Helper.assertEqual(false, await stakingContract.getHasInitedValue(mike, 8), "shouldn't't be inited data");
       Helper.assertEqual(false, await stakingContract.getHasInitedValue(mike, 9), "shouldn't be inited data");
 
-      await Helper.increaseBlockNumber( 4 * epochPeriod);
+      await Helper.increaseNextBlockTimestamp(
+        blocksToSeconds(4 * epochPeriod)
+      );
       Helper.assertEqual(false, await stakingContract.getHasInitedValue(victor, 12), "shouldn't be inited data");
       Helper.assertEqual(false, await stakingContract.getHasInitedValue(victor, 13), "shouldn't be inited data");
       Helper.assertEqual(false, await stakingContract.getHasInitedValue(mike, 12), "shouldn't be inited data");
@@ -1556,11 +1702,15 @@ contract('KyberStaking', function(accounts) {
       logInfo("Delegate no stake: init 2 epochs data + from self to mike, gas used: " + tx.receipt.cumulativeGasUsed);
       await stakingContract.delegate(victor, {from: victor});
       // jump to epoch 1
-      await Helper.increaseBlockNumberTo(startBlock);
+      await Helper.setNextBlockTimestamp(
+        blockToTimestamp(startBlock)
+      );
       tx = await stakingContract.delegate(mike, {from: victor});
       logInfo("Delegate no stake: init 1 epoch data + from self to mike, gas used: " + tx.receipt.cumulativeGasUsed);
       await stakingContract.delegate(victor, {from: victor});
-      await Helper.increaseBlockNumber(epochPeriod - 1);
+      await Helper.increaseNextBlockTimestamp(
+        blocksToSeconds(epochPeriod)
+      );
       // to make init 2 epochs data
       await stakingContract.delegate(victor, {from: victor});
       tx = await stakingContract.delegate(loi, {from: victor});
@@ -1577,27 +1727,39 @@ contract('KyberStaking', function(accounts) {
       await kncToken.approve(stakingContract.address, mulPrecision(100), {from: victor});
       await stakingContract.deposit(mulPrecision(10), {from: victor});
 
-      await Helper.increaseBlockNumberTo(4 * epochPeriod + startBlock);
+      await Helper.setNextBlockTimestamp(
+        blockToTimestamp(4 * epochPeriod + startBlock)
+      );
       tx = await stakingContract.delegate(mike, {from: victor});
       logInfo("Delegate has stake: init 2 epochs data + from self to mike, gas used: " + tx.receipt.cumulativeGasUsed);
       await stakingContract.delegate(victor, {from: victor});
-      await Helper.increaseBlockNumberTo(5 * epochPeriod + startBlock);
+      await Helper.setNextBlockTimestamp(
+        blockToTimestamp(5 * epochPeriod + startBlock)
+      );
       tx = await stakingContract.delegate(mike, {from: victor});
       logInfo("Delegate has stake: init 1 epoch data + from self to mike, gas used: " + tx.receipt.cumulativeGasUsed);
-      await Helper.increaseBlockNumberTo(6 * epochPeriod + startBlock);
+      await Helper.setNextBlockTimestamp(
+        blockToTimestamp(6 * epochPeriod + startBlock)
+      );
       // to make init 2 epochs data
       await stakingContract.delegate(victor, {from: victor});
       tx = await stakingContract.delegate(loi, {from: victor});
       logInfo("Delegate has stake: no init epoch data + from self to mike, gas used: " + tx.receipt.cumulativeGasUsed);
 
-      await Helper.increaseBlockNumberTo(8 * epochPeriod + startBlock);
+      await Helper.setNextBlockTimestamp(
+        blockToTimestamp(8 * epochPeriod + startBlock)
+      );
       tx = await stakingContract.delegate(mike, {from: victor});
       logInfo("Delegate has stake: init 2 epochs data + from mike to loi, gas used: " + tx.receipt.cumulativeGasUsed);
       await stakingContract.delegate(victor, {from: victor});
-      await Helper.increaseBlockNumberTo(9 * epochPeriod + startBlock);
+      await Helper.setNextBlockTimestamp(
+        blockToTimestamp(9 * epochPeriod + startBlock)
+      );
       tx = await stakingContract.delegate(mike, {from: victor});
       logInfo("Delegate has stake: init 1 epoch data + from mike to loi, gas used: " + tx.receipt.cumulativeGasUsed);
-      await Helper.increaseBlockNumberTo(10 * epochPeriod + startBlock);
+      await Helper.setNextBlockTimestamp(
+        blockToTimestamp(10 * epochPeriod + startBlock)
+      );
       // to make init 2 epochs data
       await stakingContract.delegate(victor, {from: victor});
       tx = await stakingContract.delegate(loi, {from: victor});
@@ -1635,14 +1797,18 @@ contract('KyberStaking', function(accounts) {
 
       await stakingContract.deposit(mulPrecision(20), {from: victor});
 
-      await Helper.increaseBlockNumberTo(3 * epochPeriod + startBlock);
+      await Helper.mineNewBlockAt(
+        blockToTimestamp(3 * epochPeriod + startBlock)
+      );
 
       // get data current + next epoch
       Helper.assertEqual(mulPrecision(70), await stakingContract.getStake(victor, 4), "get stakes should return correct data");
       Helper.assertEqual(mulPrecision(70), await stakingContract.getStake(victor, 5), "get stakes should return correct data");
 
       currentBlock = await Helper.getCurrentBlock();
-      await Helper.increaseBlockNumber(6 * epochPeriod);
+      await Helper.mineNewBlockAfter(
+        blocksToSeconds(6 * epochPeriod)
+      );
 
       // get data for pass epoch
       Helper.assertEqual(mulPrecision(70), await stakingContract.getStake(victor, 7), "get stakes should return correct data");
@@ -1676,17 +1842,23 @@ contract('KyberStaking', function(accounts) {
 
       await stakingContract.deposit(mulPrecision(20), {from: victor});
 
-      await Helper.increaseBlockNumberTo(3 * epochPeriod + startBlock);
+      await Helper.mineNewBlockAt(
+        blockToTimestamp(3 * epochPeriod + startBlock)
+      );
 
       // get data current + next epoch
       Helper.assertEqual(mulPrecision(70), await stakingContract.getDelegatedStake(mike, 4), "get delegated stakes should return correct data");
       Helper.assertEqual(mulPrecision(70), await stakingContract.getDelegatedStake(mike, 5), "get delegated stakes should return correct data");
 
-      await Helper.increaseBlockNumber(6 * epochPeriod - 2);
+      await Helper.mineNewBlockAfter(
+        blocksToSeconds(6 * epochPeriod) - 2
+      );
 
       // get data for past epoch
       Helper.assertEqual(mulPrecision(70), await stakingContract.getDelegatedStake(mike, 8), "get delegated stakes should return correct data");
 
+      // deposit at the end of the epoch
+      await Helper.increaseNextBlockTimestamp(1);
       await stakingContract.deposit(mulPrecision(30), {from: victor});
 
       // get data for pass epoch
@@ -1725,14 +1897,18 @@ contract('KyberStaking', function(accounts) {
       Helper.assertEqual(victor, await stakingContract.getDelegatedAddress(victor, 0), "get delegated address should return correct data");
       Helper.assertEqual(mike, await stakingContract.getDelegatedAddress(victor, 1), "get delegated address should return correct data");
 
-      await Helper.increaseBlockNumberTo(3 * epochPeriod + startBlock);
+      await Helper.mineNewBlockAt(
+        blockToTimestamp(3 * epochPeriod + startBlock)
+      );
 
       // get data current + next epoch
       Helper.assertEqual(mike, await stakingContract.getDelegatedAddress(victor, 4), "get delegated address should return correct data");
       Helper.assertEqual(mike, await stakingContract.getDelegatedAddress(victor, 5), "get delegated address should return correct data");
 
       currentBlock = await Helper.getCurrentBlock();
-      await Helper.increaseBlockNumber(6 * epochPeriod);
+      await Helper.mineNewBlockAfter(
+        blocksToSeconds(6 * epochPeriod)
+      );
 
       // get data for past epoch
       Helper.assertEqual(mike, await stakingContract.getDelegatedAddress(mike, 7), "get delegated address should return correct data");
@@ -1773,7 +1949,9 @@ contract('KyberStaking', function(accounts) {
       Helper.assertEqual(0, data[1], "delegated stake is wrong");
       Helper.assertEqual(victor, data[2], "delegated address is wrong");
 
-      await Helper.increaseBlockNumber(6);
+      await Helper.setNextBlockTimestamp(
+        blockToTimestamp(startBlock)
+      );
       await stakingContract.deposit(mulPrecision(20), {from: victor});
 
       data = await stakingContract.getStakerDataForPastEpoch(victor, 1);
@@ -1787,7 +1965,9 @@ contract('KyberStaking', function(accounts) {
       Helper.assertEqual(0, data[1], "delegated stake is wrong");
       Helper.assertEqual(zeroAddress, data[2], "delegated address is wrong");
 
-      await Helper.increaseBlockNumberTo(6 * epochPeriod + startBlock);
+      await Helper.setNextBlockTimestamp(
+        blockToTimestamp(6 * epochPeriod + startBlock)
+      );
 
       data = await stakingContract.getStakerDataForPastEpoch(victor, 4);
       // not inited yet
@@ -1816,7 +1996,9 @@ contract('KyberStaking', function(accounts) {
       Helper.assertEqual(0, data[1], "delegated stake is wrong");
       Helper.assertEqual(mike, data[2], "delegated address is wrong");
 
-      await Helper.increaseBlockNumberTo(7 * epochPeriod + startBlock);
+      await Helper.setNextBlockTimestamp(
+        blockToTimestamp(7 * epochPeriod + startBlock)
+      );
 
       await stakingContract.delegate(loi, {from: victor});
 
@@ -1856,7 +2038,9 @@ contract('KyberStaking', function(accounts) {
       await stakingContract.deposit(mulPrecision(10), {from: victor});
       Helper.assertEqual(mulPrecision(10), await stakingContract.getLatestStakeBalance(victor), "latest stake is wrong");
 
-      await Helper.increaseBlockNumber(20);
+      await Helper.increaseNextBlockTimestamp(
+        blocksToSeconds(20)
+      );
       Helper.assertEqual(mulPrecision(10), await stakingContract.getLatestStakeBalance(victor), "latest stake is wrong");
 
       await stakingContract.deposit(mulPrecision(20), {from: victor});
@@ -1868,7 +2052,9 @@ contract('KyberStaking', function(accounts) {
       await stakingContract.withdraw(mulPrecision(30), {from: victor});
       Helper.assertEqual(mulPrecision(10), await stakingContract.getLatestStakeBalance(victor), "latest stake is wrong");
 
-      await Helper.increaseBlockNumber(35);
+      await Helper.increaseNextBlockTimestamp(
+        blocksToSeconds(35)
+      );
       await stakingContract.withdraw(mulPrecision(10), {from: victor});
       Helper.assertEqual(0, await stakingContract.getLatestStakeBalance(victor), "latest stake is wrong");
       await stakingContract.deposit(mulPrecision(20), {from: victor});
@@ -1916,7 +2102,9 @@ contract('KyberStaking', function(accounts) {
       Helper.assertEqual(mulPrecision(50), await stakingContract.getLatestDelegatedStake(mike), "latest delegated stake is wrong");
       Helper.assertEqual(0, await stakingContract.getLatestDelegatedStake(victor), "latest delegated stake is wrong");
 
-      await Helper.increaseBlockNumber(25);
+      await Helper.increaseNextBlockTimestamp(
+        blocksToSeconds(25)
+      );
       await stakingContract.delegate(loi, {from: victor});
       Helper.assertEqual(0, await stakingContract.getLatestDelegatedStake(mike), "latest delegated stake is wrong");
       Helper.assertEqual(mulPrecision(50), await stakingContract.getLatestDelegatedStake(loi), "latest delegated stake is wrong");
@@ -1930,14 +2118,18 @@ contract('KyberStaking', function(accounts) {
       Helper.assertEqual(mulPrecision(80), await stakingContract.getLatestDelegatedStake(loi), "latest delegated stake is wrong");
       Helper.assertEqual(0, await stakingContract.getLatestDelegatedStake(victor), "latest delegated stake is wrong");
 
-      await Helper.increaseBlockNumber(25);
+      await Helper.increaseNextBlockTimestamp(
+        blocksToSeconds(25)
+      );
       await stakingContract.delegate(mike, {from: loi});
       await stakingContract.delegate(victor, {from: mike});
       Helper.assertEqual(mulPrecision(80), await stakingContract.getLatestDelegatedStake(loi), "latest delegated stake is wrong");
       Helper.assertEqual(mulPrecision(70), await stakingContract.getLatestDelegatedStake(victor), "latest delegated stake is wrong");
       Helper.assertEqual(mulPrecision(60), await stakingContract.getLatestDelegatedStake(mike), "latest delegated stake is wrong");
 
-      await Helper.increaseBlockNumber(25);
+      await Helper.increaseNextBlockTimestamp(
+        blocksToSeconds(25)
+      );
       await stakingContract.deposit(mulPrecision(30), {from: mike});
       Helper.assertEqual(mulPrecision(80), await stakingContract.getLatestDelegatedStake(loi), "latest delegated stake is wrong");
       Helper.assertEqual(mulPrecision(100), await stakingContract.getLatestDelegatedStake(victor), "latest delegated stake is wrong");
@@ -1961,7 +2153,9 @@ contract('KyberStaking', function(accounts) {
       Helper.assertEqual(victor, await stakingContract.getLatestDelegatedAddress(victor), "latest delegated address is wrong");
       Helper.assertEqual(loi, await stakingContract.getLatestDelegatedAddress(loi), "latest delegated address is wrong");
 
-      await Helper.increaseBlockNumber(20);
+      await Helper.increaseNextBlockTimestamp(
+        blocksToSeconds(20)
+      );
       await stakingContract.delegate(mike, {from: victor});
 
       Helper.assertEqual(mike, await stakingContract.getLatestDelegatedAddress(mike), "latest delegated address is wrong");
@@ -1983,7 +2177,9 @@ contract('KyberStaking', function(accounts) {
       Helper.assertEqual(mike, await stakingContract.getLatestDelegatedAddress(victor), "latest delegated address is wrong");
       Helper.assertEqual(mike, await stakingContract.getLatestDelegatedAddress(loi), "latest delegated address is wrong");
 
-      await Helper.increaseBlockNumber(25);
+      await Helper.increaseNextBlockTimestamp(
+        blocksToSeconds(25)
+      );
       Helper.assertEqual(loi, await stakingContract.getLatestDelegatedAddress(mike), "latest delegated address is wrong");
       Helper.assertEqual(mike, await stakingContract.getLatestDelegatedAddress(victor), "latest delegated address is wrong");
       Helper.assertEqual(mike, await stakingContract.getLatestDelegatedAddress(loi), "latest delegated address is wrong");
@@ -2019,7 +2215,9 @@ contract('KyberStaking', function(accounts) {
       await stakingContract.checkInitAndReturnStakerDataForCurrentEpoch(victor, 0, 0, victor, {from: dao});
 
       // delay to epoch 2
-      await Helper.increaseBlockNumberTo(epochPeriod + startBlock);
+      await Helper.setNextBlockTimestamp(
+        blockToTimestamp(epochPeriod + startBlock)
+      );
 
       Helper.assertEqual(false, await stakingContract.getHasInitedValue(victor, 2), "shouldn't inited value for epoch 2");
 
@@ -2043,7 +2241,9 @@ contract('KyberStaking', function(accounts) {
 
       await stakingContract.deposit(mulPrecision(200), {from: mike});
 
-      await Helper.increaseBlockNumberTo(2 * epochPeriod + startBlock);
+      await Helper.setNextBlockTimestamp(
+        blockToTimestamp(2 * epochPeriod + startBlock)
+      );
 
       // victor: stake (100), delegated stake (0), delegated address (mike)
       await stakingContract.checkInitAndReturnStakerDataForCurrentEpoch(
@@ -2077,7 +2277,9 @@ contract('KyberStaking', function(accounts) {
         mike, mulPrecision(200), mulPrecision(100), mike, {from: dao}
       );
 
-      await Helper.increaseBlockNumberTo(3 * epochPeriod + startBlock);
+      await Helper.setNextBlockTimestamp(
+        blockToTimestamp(3 * epochPeriod + startBlock)
+      );
 
       // mike: stake (200), delegated stake (0), delegated address (mike)
       await stakingContract.checkInitAndReturnStakerDataForCurrentEpoch(
@@ -2094,7 +2296,10 @@ contract('KyberStaking', function(accounts) {
   describe("#Revert Tests", () => {
     it("Test update DAO address should revert when sender is not daoSetter or dao address is zero", async function() {
       await deployStakingContract(10, currentBlock + 10);
-      let dao = await MockKyberDAO.new(10, currentBlock + 10);
+      let dao = await MockKyberDAO.new(
+        blocksToSeconds(10),
+        blockToTimestamp(currentBlock + 10)
+      );
       await expectRevert(
         stakingContract.updateDAOAddressAndRemoveSetter(zeroAddress, {from: daoSetter}),
         "updateDAO: DAO address is missing"
@@ -2112,7 +2317,10 @@ contract('KyberStaking', function(accounts) {
 
     it("Test update DAO address should revert when epoch period or start block is different between staking & DAO", async function() {
       await deployStakingContract(10, currentBlock + 10);
-      let dao = await MockKyberDAO.new(9, currentBlock + 10);
+      let dao = await MockKyberDAO.new(
+        blocksToSeconds(9),
+        blockToTimestamp(currentBlock + 10)
+      );
 
       // revert different epoch number
       await expectRevert(
@@ -2120,39 +2328,70 @@ contract('KyberStaking', function(accounts) {
         "updateDAO: DAO and Staking have different epoch period"
       )
 
-      dao = await MockKyberDAO.new(10, currentBlock + 9);
+      dao = await MockKyberDAO.new(
+        blocksToSeconds(10),
+        blockToTimestamp(currentBlock + 9)
+      );
       // revert different start block number
       await expectRevert(
         stakingContract.updateDAOAddressAndRemoveSetter(dao.address, {from: daoSetter}),
-        "updateDAO: DAO and Staking have different start block"
+        "updateDAO: DAO and Staking have different start timestamp"
       )
 
-      dao = await MockKyberDAO.new(10, currentBlock + 10);
+      dao = await MockKyberDAO.new(
+        blocksToSeconds(10),
+        blockToTimestamp(currentBlock + 10)
+      );
       await stakingContract.updateDAOAddressAndRemoveSetter(dao.address, {from: daoSetter});
     });
 
     it("Test constructor should revert with invalid arguments", async function() {
       // knc is 0
       await expectRevert(
-        StakingContract.new(zeroAddress, 20, currentBlock + 10, daoSetter),
+        StakingContract.new(
+          zeroAddress,
+          blocksToSeconds(20),
+          blockToTimestamp(currentBlock + 10),
+          daoSetter
+        ),
         "ctor: KNC address is missing"
       );
       // epoch period is 0
       await expectRevert(
-        StakingContract.new(kncToken.address, 0, currentBlock + 10, daoSetter),
+        StakingContract.new(
+          kncToken.address,
+          blocksToSeconds(0),
+          blockToTimestamp(currentBlock + 10),
+          daoSetter
+        ),
         "ctor: epoch duration must be positive"
       )
       // start block is in the past
       await expectRevert(
-        StakingContract.new(kncToken.address, 20, currentBlock - 1, daoSetter),
+        StakingContract.new(
+          kncToken.address,
+          blocksToSeconds(20),
+          blockToTimestamp(currentBlock - 1),
+          daoSetter
+        ),
         "ctor: start block should not be in the past"
       )
       // dao setter is 0
       await expectRevert(
-        StakingContract.new(kncToken.address, 20, currentBlock + 10, zeroAddress),
+        StakingContract.new(
+          kncToken.address,
+          blocksToSeconds(20),
+          blockToTimestamp(currentBlock + 10),
+          zeroAddress
+        ),
         "ctor: daoContractSetter address is missing"
       )
-      stakingContract = await StakingContract.new(kncToken.address, 20, currentBlock + 10, daoSetter)
+      stakingContract = await StakingContract.new(
+        kncToken.address,
+        blocksToSeconds(20),
+        blockToTimestamp(currentBlock + 10),
+        daoSetter
+      )
     });
 
     it("Test deposit should revert when amount is 0", async function() {
@@ -2303,7 +2542,10 @@ contract('KyberStaking', function(accounts) {
 
     it("Test withdraw should revert when handleWithdrawal in DAO reverted", async function() {
       await deployStakingContract(10, currentBlock + 10);
-      let dao = await MockDAOWithdrawFailed.new(10, currentBlock + 10);
+      let dao = await MockDAOWithdrawFailed.new(
+        blocksToSeconds(10),
+        blockToTimestamp(currentBlock + 10)
+      );
       await stakingContract.updateDAOAddressAndRemoveSetter(dao.address, {from: daoSetter});
 
       await kncToken.transfer(victor, mulPrecision(500));
@@ -2314,7 +2556,9 @@ contract('KyberStaking', function(accounts) {
       // shouldn't call withdraw from dao
       await stakingContract.withdraw(mulPrecision(100), {from: victor});
 
-      await Helper.increaseBlockNumber(epochPeriod);
+      await Helper.increaseNextBlockTimestamp(
+        blocksToSeconds(epochPeriod)
+      );
       await expectRevert(
         stakingContract.withdraw(mulPrecision(100), {from: victor}),
         "withdraw: dao returns false for handle withdrawal"
@@ -2332,7 +2576,9 @@ contract('KyberStaking', function(accounts) {
 
       // shouldn't call withdraw from dao
       await stakingContract.withdraw(mulPrecision(100), {from: victor});
-      await Helper.increaseBlockNumber(epochPeriod);
+      await Helper.increaseNextBlockTimestamp(
+        blocksToSeconds(epochPeriod)
+      );
 
       // Transaction reverted: function call to a non-contract account
       // so use unspecified here
@@ -2343,7 +2589,12 @@ contract('KyberStaking', function(accounts) {
 
     it("Test withdraw should revert with re-entrancy", async() => {
       await deployStakingContract(10, currentBlock + 10);
-      let maliciousDao = await MaliciousDaoReentrancy.new(10, currentBlock + 10, stakingContract.address, kncToken.address);
+      let maliciousDao = await MaliciousDaoReentrancy.new(
+        blocksToSeconds(10),
+        blockToTimestamp(currentBlock + 10),
+        stakingContract.address,
+        kncToken.address
+      );
       await stakingContract.updateDAOAddressAndRemoveSetter(maliciousDao.address, {from: daoSetter});
 
       await kncToken.transfer(maliciousDao.address, mulPrecision(100));
@@ -2351,7 +2602,9 @@ contract('KyberStaking', function(accounts) {
       await maliciousDao.deposit(mulPrecision(80));
 
       // delay to epoch 1, so withdraw will call DAO to handle withdrawal
-      await Helper.increaseBlockNumberTo(startBlock);
+      await Helper.setNextBlockTimestamp(
+        blockToTimestamp(startBlock)
+      );
 
       // partial withdraw, dao will try to re-enter withdraw
       await expectRevert(
@@ -2379,7 +2632,11 @@ contract('KyberStaking', function(accounts) {
     it("Test withdraw should revert, stake at next epoch less than amount", async function() {
       epochPeriod = 10;
       startBlock = currentBlock + 20;
-      stakingContract = await MaliciousStaking.new(kncToken.address, epochPeriod, startBlock, daoSetter);
+      stakingContract = await MaliciousStaking.new(
+        kncToken.address,
+        blocksToSeconds(epochPeriod),
+        blockToTimestamp(startBlock),
+        daoSetter);
 
       await kncToken.transfer(victor, mulPrecision(500));
       await kncToken.approve(stakingContract.address, mulPrecision(500), {from: victor});
@@ -2397,7 +2654,11 @@ contract('KyberStaking', function(accounts) {
     it("Test withdraw should revert, pass checking but not enough knc to withdraw", async function() {
       epochPeriod = 10;
       startBlock = currentBlock + 20;
-      stakingContract = await MaliciousStaking.new(kncToken.address, epochPeriod, startBlock, daoSetter);
+      stakingContract = await MaliciousStaking.new(
+        kncToken.address,
+        blocksToSeconds(epochPeriod),
+        blockToTimestamp(startBlock),
+        daoSetter);
 
       await kncToken.transfer(victor, mulPrecision(500));
       await kncToken.approve(stakingContract.address, mulPrecision(500), {from: victor});
@@ -2416,7 +2677,11 @@ contract('KyberStaking', function(accounts) {
     it("Test withdraw should revert, delegated stake less than withdrawal amount", async function() {
       epochPeriod = 10;
       startBlock = currentBlock + 20;
-      stakingContract = await MaliciousStaking.new(kncToken.address, epochPeriod, startBlock, daoSetter);
+      stakingContract = await MaliciousStaking.new(
+        kncToken.address,
+        blocksToSeconds(epochPeriod),
+        blockToTimestamp(startBlock),
+        daoSetter);
 
       await kncToken.transfer(victor, mulPrecision(500));
       await kncToken.approve(stakingContract.address, mulPrecision(500), {from: victor});
@@ -2441,7 +2706,11 @@ contract('KyberStaking', function(accounts) {
     it("Test delegate should revert, delegated stake is small", async function() {
       epochPeriod = 10;
       startBlock = currentBlock + 20;
-      stakingContract = await MaliciousStaking.new(kncToken.address, epochPeriod, startBlock, daoSetter);
+      stakingContract = await MaliciousStaking.new(
+        kncToken.address,
+        blocksToSeconds(epochPeriod),
+        blockToTimestamp(startBlock),
+        daoSetter);
 
       await kncToken.transfer(victor, mulPrecision(500));
       await kncToken.approve(stakingContract.address, mulPrecision(500), {from: victor});
