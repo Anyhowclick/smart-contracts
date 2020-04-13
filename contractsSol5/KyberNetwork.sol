@@ -40,7 +40,7 @@ contract KyberNetwork is WithdrawableNoModifiers, Utils4, IKyberNetwork, Reentra
     IKyberStorage           internal   kyberStorage;
     IGasHelper              internal   gasHelper;
 
-    NetworkFeeData internal networkFeeData; // data is feeBps and expiry block
+    NetworkFeeData internal networkFeeData; // data is feeBps and expiry timestamp
     uint internal maxGasPriceValue = 50 * 1000 * 1000 * 1000; // 50 gwei
     bool internal isEnabled = false; // is network enabled
 

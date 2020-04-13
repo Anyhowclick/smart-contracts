@@ -304,6 +304,7 @@ module.exports.increaseNextBlockTimestamp = async function(duration) {
         if (err) {
           return reject(err);
         }
+        console.log(`next block timestamp will be: ${currentChainTime + duration}`);
         resolve(res);
       },
     );
@@ -361,6 +362,29 @@ module.exports.mineNewBlockAt = async function(timestamp) {
         if (err) {
           return reject(err);
         }
+        resolve(res);
+      },
+    );
+  });
+}
+
+module.exports.mineNewBlockAfter = async function(duration) {
+  currentChainTime = await module.exports.getCurrentBlockTime();
+  return new Promise((resolve, reject) => {
+    web3.currentProvider.send.bind(web3.currentProvider)(
+      {
+        jsonrpc: "2.0",
+        method: "evm_mine",
+        params: [
+          currentChainTime + duration
+        ],
+        id: new Date().getTime(),
+      },
+      (err, res) => {
+        if (err) {
+          return reject(err);
+        }
+        console.log(`mined new block at: ${currentChainTime + duration}`);
         resolve(res);
       },
     );
