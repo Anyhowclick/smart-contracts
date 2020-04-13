@@ -35,14 +35,14 @@ contract KyberStaking is IKyberStaking, EpochUtils, ReentrancyGuard {
     IKyberDAO public daoContract;
     address public daoContractSetter;
 
-    constructor(address _kncToken, uint _epochPeriod, uint _startBlock, address _daoContractSetter) public {
+    constructor(address _kncToken, uint _epochPeriod, uint _startTimestamp, address _daoContractSetter) public {
         require(_epochPeriod > 0, "ctor: epoch duration must be positive");
-        require(_startBlock >= block.number, "ctor: start block should not be in the past");
+        require(_startTimestamp >= now, "ctor: start block should not be in the past");
         require(_kncToken != address(0), "ctor: KNC address is missing");
         require(_daoContractSetter != address(0), "ctor: daoContractSetter address is missing");
 
-        EPOCH_PERIOD_BLOCKS = _epochPeriod;
-        FIRST_EPOCH_START_BLOCK = _startBlock;
+        EPOCH_PERIOD_SECONDS = _epochPeriod;
+        FIRST_EPOCH_START_TIMESTAMP = _startTimestamp;
         kncToken = IERC20(_kncToken);
         daoContractSetter = _daoContractSetter;
     }
@@ -65,8 +65,8 @@ contract KyberStaking is IKyberStaking, EpochUtils, ReentrancyGuard {
 
         daoContract = IKyberDAO(_daoAddress);
         // verify the same epoch period + start block
-        require(daoContract.EPOCH_PERIOD_BLOCKS() == EPOCH_PERIOD_BLOCKS, "updateDAO: DAO and Staking have different epoch period");
-        require(daoContract.FIRST_EPOCH_START_BLOCK() == FIRST_EPOCH_START_BLOCK, "updateDAO: DAO and Staking have different start block");
+        require(daoContract.EPOCH_PERIOD_SECONDS() == EPOCH_PERIOD_SECONDS, "updateDAO: DAO and Staking have different epoch period");
+        require(daoContract.FIRST_EPOCH_START_TIMESTAMP() == FIRST_EPOCH_START_TIMESTAMP, "updateDAO: DAO and Staking have different start timestamp");
 
         emit DAOAddressSet(_daoAddress);
 

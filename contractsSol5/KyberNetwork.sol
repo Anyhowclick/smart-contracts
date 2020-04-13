@@ -51,7 +51,7 @@ contract KyberNetwork is Withdrawable2, Utils4, IKyberNetwork, ReentrancyGuard {
     mapping(address=>address) public reserveRebateWallet;
 
     struct NetworkFeeData {
-        uint64 expiryBlock;
+        uint64 expiryTimestamp;
         uint16 feeBps;
     }
 
@@ -476,16 +476,16 @@ contract KyberNetwork is Withdrawable2, Utils4, IKyberNetwork, ReentrancyGuard {
     /// @notice returns some data about the network
     /// @param negligibleDiffBps Neligible rate difference (in basis pts) when searching best rate
     /// @param networkFeeBps Network fees to be charged (in basis pts)
-    /// @param expiryBlock Block number for which networkFeeBps will expire,
+    /// @param expiryTimestamp Timestamp for which networkFeeBps will expire,
     /// and needs to be updated by calling DAO contract / set to default
     function getNetworkData() external view returns(
         uint negligibleDiffBps,
         uint networkFeeBps,
-        uint expiryBlock)
+        uint expiryTimestamp)
     {
-        (networkFeeBps, expiryBlock) = readNetworkFeeData();
+        (networkFeeBps, expiryTimestamp) = readNetworkFeeData();
         negligibleDiffBps = matchingEngine[0].negligibleRateDiffBps();
-        return(negligibleDiffBps, networkFeeBps, expiryBlock);
+        return(negligibleDiffBps, networkFeeBps, expiryTimestamp);
     }
 
     /// @notice returns the max gas price allowable for trades
@@ -958,11 +958,11 @@ contract KyberNetwork is Withdrawable2, Utils4, IKyberNetwork, ReentrancyGuard {
 
     /// @notice Gets the network fee from the DAO (or use default). View function for getExpectedRate.
     function getNetworkFee() internal view returns(uint networkFeeBps) {
-        uint expiryBlock;
-        (networkFeeBps, expiryBlock) = readNetworkFeeData();
+        uint expiryTimestamp;
+        (networkFeeBps, expiryTimestamp) = readNetworkFeeData();
 
-        if (expiryBlock < block.number && kyberDAO.length > 0) {
-            (networkFeeBps, expiryBlock) = kyberDAO[0].getLatestNetworkFeeData();
+        if (expiryTimestamp < now && kyberDAO.length > 0) {
+            (networkFeeBps, expiryTimestamp) = kyberDAO[0].getLatestNetworkFeeData();
         }
     }
 
@@ -971,28 +971,28 @@ contract KyberNetwork is Withdrawable2, Utils4, IKyberNetwork, ReentrancyGuard {
     /// @dev Note that this function can be triggered by anyone, so that
     /// the first trader of a new epoch can avoid incurring extra gas costs
     function getAndUpdateNetworkFee() public returns(uint networkFeeBps) {
-        uint expiryBlock;
+        uint expiryTimestamp;
 
-        (networkFeeBps, expiryBlock) = readNetworkFeeData();
+        (networkFeeBps, expiryTimestamp) = readNetworkFeeData();
 
-        if (expiryBlock < block.number && kyberDAO.length > 0) {
-            (networkFeeBps, expiryBlock) = kyberDAO[0].getLatestNetworkFeeDataWithCache();
-            updateNetworkFee(expiryBlock, networkFeeBps);
+        if (expiryTimestamp < now && kyberDAO.length > 0) {
+            (networkFeeBps, expiryTimestamp) = kyberDAO[0].getLatestNetworkFeeDataWithCache();
+            updateNetworkFee(expiryTimestamp, networkFeeBps);
         }
     }
 
     function readNetworkFeeData() internal view
-        returns(uint feeBps, uint expiryBlock)
+        returns(uint feeBps, uint expiryTimestamp)
     {
         feeBps = uint(networkFeeData.feeBps);
-        expiryBlock = uint(networkFeeData.expiryBlock);
+        expiryTimestamp = uint(networkFeeData.expiryTimestamp);
     }
 
-    function updateNetworkFee(uint expiryBlock, uint feeBps) internal {
-        require(expiryBlock < 2 ** 64, "expiry overflow");
+    function updateNetworkFee(uint expiryTimestamp, uint feeBps) internal {
+        require(expiryTimestamp < 2 ** 64, "expiry overflow");
         require(feeBps < BPS / 2, "fees exceed BPS");
 
-        networkFeeData.expiryBlock = uint64(expiryBlock);
+        networkFeeData.expiryTimestamp = uint64(expiryTimestamp);
         networkFeeData.feeBps = uint16(feeBps);
     }
 }
