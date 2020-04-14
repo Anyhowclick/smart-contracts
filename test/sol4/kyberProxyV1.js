@@ -129,7 +129,7 @@ contract('KyberProxyV1', function(accounts) {
 
     it("should init DAO, network, proxy", async function () {
         //DAO related init.
-        expiryTimestamp = new BN(await web3.eth.getBlockNumber() + 150);
+        expiryTimestamp = new BN(await Helper.getCurrentBlockTime() + 1000000);
         DAO = await MockDao.new(rewardInBPS, rebateInBPS, epoch, expiryTimestamp);
         await DAO.setNetworkFeeBps(networkFeeBps);
 
