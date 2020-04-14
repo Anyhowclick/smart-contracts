@@ -133,7 +133,7 @@ contract KyberFeeHandler is IKyberFeeHandler, Utils4, BurnConfigPermission {
         burnBlockInterval = _burnBlockInterval;
 
         //start with epoch 0
-        updateBRRData(DEFAULT_REWARD_BPS, DEFAULT_REBATE_BPS, block.number, 0);
+        updateBRRData(DEFAULT_REWARD_BPS, DEFAULT_REBATE_BPS, now, 0);
     }
 
     event EthReceived(uint amount);

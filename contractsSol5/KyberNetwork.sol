@@ -56,7 +56,7 @@ contract KyberNetwork is WithdrawableNoModifiers, Utils4, IKyberNetwork, Reentra
     }
 
     constructor(address _admin, IKyberStorage _kyberStorage) public WithdrawableNoModifiers(_admin) {
-        updateNetworkFee(block.number, DEFAULT_NETWORK_FEE_BPS);
+        updateNetworkFee(now, DEFAULT_NETWORK_FEE_BPS);
         kyberStorage = _kyberStorage;
     }
 
@@ -1059,7 +1059,7 @@ contract KyberNetwork is WithdrawableNoModifiers, Utils4, IKyberNetwork, Reentra
         uint expiryTimestamp;
         (networkFeeBps, expiryTimestamp) = readNetworkFeeData();
 
-        if (expiryTimestamp < block.number && kyberDAO != IKyberDAO(0)) {
+        if (expiryTimestamp < now && kyberDAO != IKyberDAO(0)) {
             (networkFeeBps, expiryTimestamp) = kyberDAO.getLatestNetworkFeeData();
         }
     }
@@ -1073,7 +1073,7 @@ contract KyberNetwork is WithdrawableNoModifiers, Utils4, IKyberNetwork, Reentra
 
         (networkFeeBps, expiryTimestamp) = readNetworkFeeData();
 
-        if (expiryTimestamp < block.number && kyberDAO != IKyberDAO(0)) {
+        if (expiryTimestamp < now && kyberDAO != IKyberDAO(0)) {
             (networkFeeBps, expiryTimestamp) = kyberDAO.getLatestNetworkFeeDataWithCache();
             updateNetworkFee(expiryTimestamp, networkFeeBps);
         }
