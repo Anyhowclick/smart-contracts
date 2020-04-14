@@ -2374,7 +2374,7 @@ contract('KyberStaking', function(accounts) {
           blockToTimestamp(currentBlock - 1),
           daoSetter
         ),
-        "ctor: start block should not be in the past"
+        "ctor: start timestamp should not be in the past"
       )
       // dao setter is 0
       await expectRevert(
