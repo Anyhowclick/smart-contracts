@@ -49,7 +49,7 @@ let platformWallet;
 let rewardInBPS = new BN(7000);
 let rebateInBPS = new BN(2000);
 let epoch = new BN(3);
-let expiryBlockNumber;
+let expiryTimestamp;
 
 //fee hanlder related
 let KNC;
@@ -95,8 +95,8 @@ contract('KyberNetwork', function(accounts) {
         hintParser = accounts[6];
 
         //DAO related init.
-        expiryBlockNumber = new BN(await web3.eth.getBlockNumber() + 150);
-        DAO = await MockDao.new(rewardInBPS, rebateInBPS, epoch, expiryBlockNumber);
+        expiryTimestamp = new BN(await web3.eth.getBlockNumber() + 150);
+        DAO = await MockDao.new(rewardInBPS, rebateInBPS, epoch, expiryTimestamp);
         await DAO.setNetworkFeeBps(networkFeeBps);
 
         //init tokens
@@ -624,8 +624,8 @@ contract('KyberNetwork', function(accounts) {
     describe("test with MockDAO", async() => {
         before("initialise DAO, network and reserves", async() => {
             // DAO related init.
-            expiryBlockNumber = new BN(await web3.eth.getBlockNumber() + 150);
-            DAO = await MockDao.new(rewardInBPS, rebateInBPS, epoch, expiryBlockNumber);
+            expiryTimestamp = new BN(await web3.eth.getBlockNumber() + 150);
+            DAO = await MockDao.new(rewardInBPS, rebateInBPS, epoch, expiryTimestamp);
             await DAO.setNetworkFeeBps(networkFeeBps);
 
             // init storage and network
@@ -815,8 +815,8 @@ contract('KyberNetwork', function(accounts) {
             describe("backward compatible getExpectedRate (no hint)", async() => {
                 it("should get expected rate, no fees at all for T2E, E2T & T2T", async() => {
                     //setup mockDAO with zero network bps
-                    expiryBlockNumber = new BN(await web3.eth.getBlockNumber() + 150);
-                    let tempDAO = await MockDao.new(rewardInBPS, rebateInBPS, epoch, expiryBlockNumber);
+                    expiryTimestamp = new BN(await web3.eth.getBlockNumber() + 150);
+                    let tempDAO = await MockDao.new(rewardInBPS, rebateInBPS, epoch, expiryTimestamp);
                     await tempDAO.setNetworkFeeBps(zeroBN);
                     await network.setDAOContract(tempDAO.address, {from: admin});
 
@@ -896,8 +896,8 @@ contract('KyberNetwork', function(accounts) {
             describe("getExpectedRateWithHintAndFee", async() => {
                 it("should get expected rate, no fees at all for T2E, E2T & T2T", async() => {
                     //setup mockDAO with zero network bps
-                    expiryBlockNumber = new BN(await web3.eth.getBlockNumber() + 150);
-                    let tempDAO = await MockDao.new(rewardInBPS, rebateInBPS, epoch, expiryBlockNumber);
+                    expiryTimestamp = new BN(await web3.eth.getBlockNumber() + 150);
+                    let tempDAO = await MockDao.new(rewardInBPS, rebateInBPS, epoch, expiryTimestamp);
                     await tempDAO.setNetworkFeeBps(zeroBN);
                     await network.setDAOContract(tempDAO.address, {from: admin});
 
@@ -1429,7 +1429,7 @@ contract('KyberNetwork', function(accounts) {
             await tempNetwork.setContracts(feeHandler.address, matchingEngine.address,
                 zeroAddress, { from: admin });
 
-            let DAO = await MockDao.new(rewardInBPS, rebateInBPS, epoch, expiryBlockNumber);
+            let DAO = await MockDao.new(rewardInBPS, rebateInBPS, epoch, expiryTimestamp);
             await DAO.setNetworkFeeBps(networkFeeBps);
 
             await tempNetwork.setDAOContract(DAO.address, { from: admin });

@@ -9,8 +9,8 @@ interface IKyberDAO {
 
     function handleWithdrawal(address staker, uint penaltyAmount) external returns(bool);
     function shouldBurnRewardForEpoch(uint epoch) external view returns(bool);
-    function getLatestNetworkFeeData() external view returns(uint feeInBps, uint expiryBlockNumber);
-    function getLatestNetworkFeeDataWithCache() external returns(uint feeInBps, uint expiryBlockNumber);
+    function getLatestNetworkFeeData() external view returns(uint feeInBps, uint expiryTimestamp);
+    function getLatestNetworkFeeDataWithCache() external returns(uint feeInBps, uint expiryTimestamp);
     function getLatestBRRData() external
-        returns(uint burnInBps, uint rewardInBps, uint rebateInBps, uint epoch, uint expiryBlockNumber);
+        returns(uint burnInBps, uint rewardInBps, uint rebateInBps, uint epoch, uint expiryTimestamp);
 }
