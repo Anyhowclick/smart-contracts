@@ -1411,15 +1411,15 @@ contract('KyberNetwork', function(accounts) {
             Helper.assertEqual(networkData.networkFeeBps, defaultNetworkFeeBps);
 
             let newFee = new BN(35);
-            let newExpiryBlock = new BN(723);
-            await tempNetwork.setNetworkFeeData(newFee, newExpiryBlock);
+            let newExpiryTimestamp = new BN(723);
+            await tempNetwork.setNetworkFeeData(newFee, newExpiryTimestamp);
 
             networkData = await tempNetwork.getNetworkData();
             Helper.assertEqual(networkData.networkFeeBps, newFee);
 
             let networkFeeData = await tempNetwork.getNetworkFeeData();
             Helper.assertEqual(networkFeeData[0], newFee);
-            Helper.assertEqual(networkFeeData[1], newExpiryBlock);
+            Helper.assertEqual(networkFeeData[1], newExpiryTimestamp);
         });
 
         it("test revert with high networkFee", async () => {
@@ -1702,7 +1702,7 @@ contract('KyberNetwork', function(accounts) {
                 zeroAddress, { from: admin });
         });
 
-        it("expiryBlock too large", async function(){
+        it("expiryTimestamp too large", async function(){
             expirtyBlock = ((new BN(2)).pow(new BN(64))).add(new BN(1));
             feeBPS = new BN(100);
             await expectRevert(
@@ -1712,29 +1712,28 @@ contract('KyberNetwork', function(accounts) {
         });
 
         it("fee BPS too large", async function(){
-            expiryBlock = new BN(5000000);
+            expiryTimestamp = new BN(5000000);
             feeBPS = (BPS.div(new BN(2))).add(new BN(1));
             await expectRevert(
-                tempNetwork.setNetworkFeeData(feeBPS, expiryBlock),
+                tempNetwork.setNetworkFeeData(feeBPS, expiryTimestamp),
                 "fees exceed BPS"
             );
         });
 
         it("set expiry block", async function(){
-            currentBlock = await Helper.getCurrentBlock();
+            currentTime = await Helper.getCurrentBlockTime();
             feeBPS = new BN(100);
-            expiryBlock = currentBlock + 10;
-            await tempNetwork.setNetworkFeeData(feeBPS, expiryBlock);
+            expiryTimestamp = currentTime + 10;
+            await tempNetwork.setNetworkFeeData(feeBPS, expiryTimestamp);
             actualFeeBPS = await tempNetwork.getAndUpdateNetworkFee.call();
             Helper.assertEqual(actualFeeBPS, feeBPS, "fee bps not correct");
             Helper.assertEqual(await tempNetwork.mockGetNetworkFee(), feeBPS, "getNetworkfee not correct")
         });
 
         it("test get network fee from DAO", async function(){
-            currentBlock = await Helper.getCurrentBlock();
-            expiryBlock = currentBlock;
+            expiryTimestamp = await Helper.getCurrentBlockTime();
             feeBPS = new BN(99);
-            DAO = await MockDao.new(rewardInBPS, rebateInBPS, epoch, expiryBlock);
+            DAO = await MockDao.new(rewardInBPS, rebateInBPS, epoch, expiryTimestamp);
             await DAO.setNetworkFeeBps(feeBPS);
             await tempNetwork.setDAOContract(DAO.address, {from: admin});
             actualFeeBPS = await tempNetwork.getAndUpdateNetworkFee.call();
@@ -1765,10 +1764,10 @@ contract('KyberNetwork', function(accounts) {
             await tempNetwork.addKyberProxy(networkProxy, { from: admin });
 
             // init DAO
-            DAO = await MockDao.new(rewardInBPS, rebateInBPS, epoch, expiryBlock);
+            DAO = await MockDao.new(rewardInBPS, rebateInBPS, epoch, expiryTimestamp);
             await tempNetwork.setDAOContract(DAO.address, { from: admin });
             feeBPS = new BN(100);
-            expiryBlock = await Helper.getCurrentBlock() + 100;
+            expiryTimestamp = await Helper.getCurrentBlock() + 100;
 
             // init feeHandler
             KNC = await TestToken.new("kyber network crystal", "KNC", 18);
