@@ -438,7 +438,7 @@ contract KyberNetwork is WithdrawableNoModifiers, Utils4, IKyberNetwork, Reentra
         uint expiryTimestamp)
     {
         (networkFeeBps, expiryTimestamp) = readNetworkFeeData();
-        negligibleDiffBps = matchingEngine[0].negligibleRateDiffBps();
+        negligibleDiffBps = matchingEngine.getNegligibleRateDiffBps();
         return(negligibleDiffBps, networkFeeBps, expiryTimestamp);
     }
 
@@ -1059,8 +1059,8 @@ contract KyberNetwork is WithdrawableNoModifiers, Utils4, IKyberNetwork, Reentra
         uint expiryTimestamp;
         (networkFeeBps, expiryTimestamp) = readNetworkFeeData();
 
-        if (expiryBlock < block.number && kyberDAO != IKyberDAO(0)) {
-            (networkFeeBps, expiryTimestamp) = kyberDAO[0].getLatestNetworkFeeData();
+        if (expiryTimestamp < block.number && kyberDAO != IKyberDAO(0)) {
+            (networkFeeBps, expiryTimestamp) = kyberDAO.getLatestNetworkFeeData();
         }
     }
 
@@ -1073,8 +1073,8 @@ contract KyberNetwork is WithdrawableNoModifiers, Utils4, IKyberNetwork, Reentra
 
         (networkFeeBps, expiryTimestamp) = readNetworkFeeData();
 
-        if (expiryBlock < block.number && kyberDAO != IKyberDAO(0)) {
-            (networkFeeBps, expiryTimestamp) = kyberDAO[0].getLatestNetworkFeeDataWithCache();
+        if (expiryTimestamp < block.number && kyberDAO != IKyberDAO(0)) {
+            (networkFeeBps, expiryTimestamp) = kyberDAO.getLatestNetworkFeeDataWithCache();
             updateNetworkFee(expiryTimestamp, networkFeeBps);
         }
     }
