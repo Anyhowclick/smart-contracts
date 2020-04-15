@@ -8,8 +8,10 @@ import "./utils/PermissionGroupsNoModifiers.sol";
 
 /**
  *   @title KyberStorage contract
- *   Receives call from KyberNetwork for:
- *   - record contract changes for matchingEngine, feeHandler, reserves and kyberDAO
+ *   The contract provides the following functions:
+ *   - Stores reserve and token listing information by the network
+ *   - Stores feeAccounted data for reserve types
+ *   - Record contract changes for network, matchingEngine, feeHandler, reserves, network proxies and kyberDAO
  */
 contract KyberStorage is IKyberStorage, PermissionGroupsNoModifiers {
     // store current and previous contracts.
@@ -82,9 +84,9 @@ contract KyberStorage is IKyberStorage, PermissionGroupsNoModifiers {
         return true;
     }
 
-    /// @notice should be called off chain
-    /// @dev returns list of DAO, feeHandler and matchingEngine contracts used
-    /// @dev index 0 is currently used contract address, indexes > 0 are older versions
+    /// @notice Should be called off chain
+    /// @dev Returns list of DAO, feeHandler and matchingEngine contracts used
+    /// @dev Index 0 is currently used contract address, indexes > 0 are older versions
     function getContracts()
         external
         view
@@ -224,8 +226,7 @@ contract KyberStorage is IKyberStorage, PermissionGroupsNoModifiers {
         }
     }
 
-    /// @notice should be called off chain
-    /// @dev get an array of all reserves
+    /// @notice Should be called off chain
     /// @return An array of all reserves
     function getReserves() external view returns (IKyberReserve[] memory) {
         return reserves;
@@ -285,7 +286,7 @@ contract KyberStorage is IKyberStorage, PermissionGroupsNoModifiers {
         return reservesPerTokenDest[token];
     }
 
-    /// @dev no. of KyberNetworkProxies are capped
+    /// @dev No. of KyberNetworkProxies are capped
     function addKyberProxy(address networkProxy, uint256 max_approved_proxies)
         external
         returns (bool)
@@ -321,9 +322,8 @@ contract KyberStorage is IKyberStorage, PermissionGroupsNoModifiers {
         return true;
     }
 
-    /// @notice should be called off chain
-    /// @dev get an array of KyberNetworkProxies
-    /// @return An array of both KyberNetworkProxies
+    /// @notice Should be called off chain
+    /// @return An array of KyberNetworkProxies
     function getKyberProxies()
         external
         view
@@ -357,6 +357,10 @@ contract KyberStorage is IKyberStorage, PermissionGroupsNoModifiers {
         feeAccountedPerType = feeAccountedData;
     }
 
+    /// @notice Returns information about a reserve given its reserve ID
+    /// @return reserveAddress Address of the reserve
+    /// @return resType Reserve type from enum ReserveType
+    /// @return isFeeAccounted Whether fees are to be charged for the trade for this reserve
     function getReserveDetailsById(bytes32 reserveId)
         external
         view
@@ -372,6 +376,10 @@ contract KyberStorage is IKyberStorage, PermissionGroupsNoModifiers {
             (feeAccountedPerType & (1 << reserveType[reserveId])) > 0;
     }
 
+    /// @notice Returns information about a reserve given its reserve ID
+    /// @return reserveId The reserve ID in 32 bytes. 1st byte is reserve type
+    /// @return resType Reserve type from enum ReserveType
+    /// @return isFeeAccounted Whether fees are to be charged for the trade for this reserve
     function getReserveDetailsByAddress(address reserve)
         external
         view
